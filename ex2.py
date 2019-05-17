@@ -4,15 +4,18 @@ from collections import Counter
 
 import numpy as np
 
-TEST_TRAIN_RATIO = 0.85
-ITERATIONS = 100
+CLASSES = ["0", "1", "2"]
+FOLDS = 7
+ITERATIONS = 20
+LEARNING_RATE = 0.1
 BIAS = 1
 
 class FileReader(object):
-    def __init__(self, input_file):
-        self.file = input_file
-        self.data = [line.split(",") for line in self.file.read().splitlines()]
+    def __init__(self, data_file, classes_file):
+        self.data = [line.split(",") for line in data_file.read().splitlines()]
+        self.classes = [str(x[0]) for x in classes_file.read().splitlines()]
         print(self.data)
+        print(self.classes)
         self.normalize()
 
     def normalize(self):
@@ -24,22 +27,24 @@ class FileReader(object):
 
 class MultiClassPerceptron(object):
 
-    def __init__(self, classes, features, data, train_test_ratio, iterations):
+    def __init__(self, classes, data, folds, iterations):
         self.classes = classes
-        self.features = features
-        self.data = data
-        self.train_test_ratio = train_test_ratio
+        self.data = [[data_item[0], data_item[1] + [BIAS]] for data_item in data]
+        self.num_of_features = len(self.data[0][1]) - 1
+        self.folds = folds
         self.iterations = iterations
 
         # Split feature data into train set, and test set
-        random.shuffle(self.data)
-        self.train_set = self.data[:int(len(self.data) * self.ratio)]
-        self.test_set = self.data[int(len(self.data) * self.ratio):]
+        k, m = divmod(len(self.data), FOLDS)
+        self.folded_data = list(self.data[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(FOLDS))
 
-        self.weights_arrays = {c: np.array([0 for _ in range(len(features) + 1)]) for c in self.classes}
+        self.train_set = [y for x in self.folded_data[1:] for y in x]
+        self.test_set = self.folded_data[0]
+
+        self.weights_arrays = {c: np.array([0 for _ in range(self.num_of_features + 1)]) for c in self.classes}
+
 
     def predict(self, feature_input_data):
-        feature_input_data.append(BIAS)
         feature_input_array = np.array(feature_input_data)
 
         max_activation = 0
@@ -54,9 +59,8 @@ class MultiClassPerceptron(object):
         return prediction
 
     def train(self):
-        for _ in range(self.iterations):
+        for iter_num in range(self.iterations):
             for category, feature_data in self.train_set:
-                feature_data.append(BIAS)
                 feature_array = np.array(feature_data)
 
                 max_activation = 0
@@ -71,24 +75,49 @@ class MultiClassPerceptron(object):
 
                 # Update Rule:
                 if not (category == prediction):
-                    self.weights_arrays[category] += feature_array
-                    self.weights_arrays[prediction] -= feature_array
+                    self.weights_arrays[category] = np.array([(x + LEARNING_RATE * y) for (x, y) in zip(self.weights_arrays[category], feature_array)])
+                    self.weights_arrays[prediction] = np.array([(x - LEARNING_RATE * y) for (x, y) in zip(self.weights_arrays[prediction], feature_array)])
+
+
+
+    def cross_validate(self):
+        self.train()
+        accuracy_avg = self.accuracy()
+        for i in range(1, FOLDS):
+            self.train_set += self.test_set
+            self.test_set = self.folded_data[i]
+            self.train_set = [x for x in self.train_set if x not in self.test_set]
+            self.train()
+            accuracy_avg += self.accuracy()
+        accuracy_avg /= FOLDS
+        print("AVG Accuracy:", accuracy_avg)
 
     def accuracy(self):
         correct = 0
+        incorrect = 0
         for category, feature_data in self.test_set:
             prediction = self.predict(feature_data)
             if category == prediction:
                 correct += 1
+            else:
+                incorrect += 1
 
+        accuracy = (correct * 1.0) / ((correct + incorrect) * 1.0)
         print ("ACCURACY:")
-        print ("Model Accuracy:", (correct * 1.0) / ((len(feature_data)) * 1.0))
+        print ("Model Accuracy:", accuracy)
+        return accuracy
 
 
 def main():
-    input_path = sys.argv[1]
-    with open(input_path, "r") as input_file:
-        reader = FileReader(input_file)
+    data_path = sys.argv[1]
+    classes_path = sys.argv[2]
+    with open(data_path, "r") as data_file, open(classes_path, "r") as classes_file:
+        reader = FileReader(data_file, classes_file)
+
+    data = list(zip(reader.classes, reader.data))
+    random.shuffle(data)
+    perceptron = MultiClassPerceptron(CLASSES, data, FOLDS, ITERATIONS)
+    perceptron.cross_validate()
 
 if __name__ == "__main__":
     main()
