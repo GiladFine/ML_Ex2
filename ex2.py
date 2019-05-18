@@ -5,9 +5,9 @@ from collections import Counter
 import numpy as np
 
 CLASSES = ["0", "1", "2"]
-FOLDS = 7
-ITERATIONS = 20
-LEARNING_RATE = 0.1
+FOLDS = 4
+ITERATIONS = 25
+LEARNING_RATE = 0.2
 BIAS = 1
 
 class FileReader(object):
@@ -19,10 +19,22 @@ class FileReader(object):
         self.normalize()
 
     def normalize(self):
+        # Nominal data
         nominal_data = [line[0] for line in self.data]
         nominal_data_counter = Counter(nominal_data)
         self.data = [[round(nominal_data_counter[line[0]] / len(self.data), 4)] + line[1:] for line in self.data]
         self.data = [[line[0]] + list(map(float, line[1:])) for line in self.data]
+        print(self.data)
+
+        # Other data
+        max_values = [0 for _ in range(len(self.data[0]) - 1)]
+        min_values = [0 for _ in range(len(self.data[0]) - 1)]
+        for i in range(len(max_values)):
+            max_values[i] = (max(np.array(self.data)[:,i + 1]))
+            min_values[i] = (min(np.array(self.data)[:,i + 1]))
+
+        for i in range(len(self.data)):
+            self.data[i] = [self.data[i][0]] + [(self.data[i][j + 1] - min_values[j]) / (max_values[j] - min_values[j]) for j in range(len(self.data[i]) - 1)]
         print(self.data)
 
 class MultiClassPerceptron(object):
@@ -41,7 +53,7 @@ class MultiClassPerceptron(object):
         self.train_set = [y for x in self.folded_data[1:] for y in x]
         self.test_set = self.folded_data[0]
 
-        self.weights_arrays = {c: np.array([0 for _ in range(self.num_of_features + 1)]) for c in self.classes}
+        self.weights_arrays = {}
 
 
     def predict(self, feature_input_data):
@@ -59,6 +71,7 @@ class MultiClassPerceptron(object):
         return prediction
 
     def train(self):
+        self.weights_arrays = {c: np.array([0 for _ in range(self.num_of_features + 1)]) for c in self.classes}
         for iter_num in range(self.iterations):
             for category, feature_data in self.train_set:
                 feature_array = np.array(feature_data)
