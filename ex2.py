@@ -174,6 +174,7 @@ def load_labels(labels_file):
     labels = np.loadtxt(labels_file, dtype=np.float64)
     return labels
 
+
 def main():
     data_path = 'train_x.txt' #sys.argv[1]
     classes_path = 'train_y.txt' #sys.argv[2]
