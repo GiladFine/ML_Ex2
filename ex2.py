@@ -141,6 +141,7 @@ class SVM:
                 x = self.train_x[i]
                 y = self.train_y[i]
                 y = int(y)
+                #-----
                 values = np.dot(w, x)
                 # Put -inf in y index to find argmax without y
                 values[y] = - np.inf
@@ -154,6 +155,46 @@ class SVM:
                     else:
                         w[l, :] = s * w[l, :]
         return w
+
+class PA:
+    def __init__(self, train_x, train_y, epochs, eta, Lambda, k):
+        self.train_x = train_x
+        self.train_y = train_y
+        self.epochs = epochs
+        self.eta = eta
+        self.Lambda = Lambda
+        self.k = k
+
+    def train(self):
+        N = len(self.train_x)
+        n = len(self.train_x[0])
+        w = np.zeros((self.k, n))
+        for ep in range(self.epochs):
+            arr = np.arange(N)
+            np.random.shuffle(arr)
+            self.train_x = self.train_x[arr]
+            self.train_y = self.train_y[arr]
+            for i in range(N):
+                x = self.train_x[i]
+                y = self.train_y[i]
+                y = int(y)
+                # -----
+                values = np.dot(w, x)
+                values[y] = - np.inf
+                y_hat = np.argmax(values)
+                # compute tau
+                err = 1 - np.dot(w[y, :], x) + np.dot(w[y_hat, :], x)
+                loss = np.max([0, err])
+                tau = loss / np.dot(x, x)
+                # update w
+                for l in range(k):
+                    if l == y:
+                        w[y, :] = w[y, :] + tau * x
+                    if l == y_hat:
+                        w[y_hat, :] = w[y_hat, :] - tau * x
+
+                return w
+
 
 def load_data(data_file):
     data = []
