@@ -155,20 +155,6 @@ class SVM:
                         w[l, :] = s * w[l, :]
         return w
 
-    def evaluate(self, dev_x, dev_y, w):
-        # compute dev accuracy using trained parameters
-        accuracy = 0
-        N = len(dev_x)
-        for x, y in zip(dev_x, dev_y):
-            values = np.dot(w, x)
-            y_hat = np.argmax(values)
-            if y_hat == y:
-                accuracy += 1
-        accuracy /= N
-        return accuracy
-
-
-
 def load_data(data_file):
     data = []
     # Sex feature to numerical index dictionary
