@@ -8,31 +8,35 @@ CLASSES = [0, 1, 2]
 BIAS = 1
 
 class FileReader(object):
-    def __init__(self, data_file, classes_file):
-        self.data = [line.split(",") for line in data_file.read().splitlines()]
+    def __init__(self, data_file, classes_file, test_file):
+        self.train = [line.split(",") for line in data_file.read().splitlines()]
         self.classes = [int(x[0]) for x in classes_file.read().splitlines()]
-        #print(self.data)
-        #print(self.classes)
-        self.normalize()
+        self.test = [line.split(",") for line in test_file.read().splitlines()]
 
-    def normalize(self):
+        self.train = self.normalize(self.train)
+        self.test = self.normalize(self.test)
+
+    def normalize(self, data):
         # Nominal data
-        nominal_data = [line[0] for line in self.data]
+        nominal_data = [line[0] for line in data]
         nominal_data_counter = Counter(nominal_data)
-        self.data = [[round(nominal_data_counter[line[0]] / len(self.data), 4)] + line[1:] for line in self.data]
-        self.data = [[line[0]] + list(map(float, line[1:])) for line in self.data]
-        #print(self.data)
+        data = [[round(nominal_data_counter[line[0]] / len(data), 4)] + line[1:] for line in data]
+        data = [[line[0]] + list(map(float, line[1:])) for line in data]
 
         # Other data
-        max_values = [0 for _ in range(len(self.data[0]) - 1)]
-        min_values = [0 for _ in range(len(self.data[0]) - 1)]
+        max_values = [0 for _ in range(len(data[0]) - 1)]
+        min_values = [0 for _ in range(len(data[0]) - 1)]
         for i in range(len(max_values)):
-            max_values[i] = (max(np.array(self.data)[:,i + 1]))
-            min_values[i] = (min(np.array(self.data)[:,i + 1]))
+            max_values[i] = (max(np.array(data)[:,i + 1]))
+            min_values[i] = (min(np.array(data)[:,i + 1]))
 
-        for i in range(len(self.data)):
-            self.data[i] = [self.data[i][0]] + [(self.data[i][j + 1] - min_values[j]) / (max_values[j] - min_values[j]) for j in range(len(self.data[i]) - 1)]
-        print(self.data)
+        for i in range(len(data)):
+            for j in range(len(data[i]) - 1):
+                if max_values[j] - min_values[j] == 0:
+                    max_values[j] += 0.01
+
+            data[i] = [data[i][0]] + [(data[i][j + 1] - min_values[j]) / (max_values[j] - min_values[j]) for j in range(len(data[i]) - 1)]
+        return data
 
 
 class MLAlgorithm(object):
@@ -87,14 +91,15 @@ class MultiClassPerceptron(MLAlgorithm):
         k, m = divmod(len(self.data), self.folds)
         self.folded_data = list(self.data[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(self.folds))
 
-        self.train_set = [y for x in self.folded_data[1:] for y in x]
-        self.test_set = self.folded_data[0]
+        self.train_set = self.data
+        #self.train_set = [y for x in self.folded_data[1:] for y in x]
+        #self.test_set = self.folded_data[0]
 
         self.train_x = [line[1] for line in self.train_set]
         self.train_y = [line[0] for line in self.train_set]
 
-        self.test_x = [line[1] for line in self.test_set]
-        self.test_y = [line[0] for line in self.test_set]
+        #self.test_x = [line[1] for line in self.test_set]
+        #self.test_y = [line[0] for line in self.test_set]
 
         self.w = np.zeros((len(self.classes), len(self.train_x[0])))
 
@@ -137,14 +142,15 @@ class SVM(MLAlgorithm):
         k, m = divmod(len(self.data), self.folds)
         self.folded_data = list(self.data[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(self.folds))
 
-        self.train_set = [y for x in self.folded_data[1:] for y in x]
-        self.test_set = self.folded_data[0]
+        self.train_set = self.data
+        #self.train_set = [y for x in self.folded_data[1:] for y in x]
+        #self.test_set = self.folded_data[0]
 
         self.train_x = [line[1] for line in self.train_set]
         self.train_y = [line[0] for line in self.train_set]
 
-        self.test_x = [line[1] for line in self.test_set]
-        self.test_y = [line[0] for line in self.test_set]
+        #self.test_x = [line[1] for line in self.test_set]
+        #self.test_y = [line[0] for line in self.test_set]
 
         self.w = np.zeros((len(self.classes), len(self.train_x[0])))
 
@@ -175,8 +181,6 @@ class SVM(MLAlgorithm):
                         self.w[c, :] = [(s * wi - self.eta * xj) for wi, xj in zip(self.w[c, :], x)]
                     else:
                         self.w[c, :] = [s * i for i in self.w[c, :]]
-        return self.w
-
 
 class PA(MLAlgorithm):
     def __init__(self, classes, data, iterations, folds):
@@ -189,13 +193,15 @@ class PA(MLAlgorithm):
         k, m = divmod(len(self.data), self.folds)
         self.folded_data = list(self.data[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(self.folds))
 
-        self.train_set = [y for x in self.folded_data[1:] for y in x]
+        self.train_set = self.data
+        #self.train_set = [y for x in self.folded_data[1:] for y in x]
+        #self.test_set = self.folded_data[0]
+
         self.train_x = [line[1] for line in self.train_set]
         self.train_y = [line[0] for line in self.train_set]
 
-        self.test_set = self.folded_data[0]
-        self.test_x = [line[1] for line in self.test_set]
-        self.test_y = [line[0] for line in self.test_set]
+        #self.test_x = [line[1] for line in self.test_set]
+        #self.test_y = [line[0] for line in self.test_set]
 
         self.w = np.zeros((len(self.classes), len(self.train_x[0])))
 
@@ -229,28 +235,35 @@ class PA(MLAlgorithm):
 
                     if c == y_hat:
                         self.w[c, :] = [(wi - tau * xj) for wi, xj in zip(self.w[c, :], x)]
-        return self.w
-
 def main():
-    data_path = 'train_x.txt' #sys.argv[1]
-    classes_path = 'train_y.txt' #sys.argv[2]
+    data_path = 'train_x_bla.txt' #sys.argv[1]
+    classes_path = 'train_y_bla.txt' #sys.argv[2]
+    test_path = 'test_x_bla.txt' #sys.argv[2]
 
-    with open(data_path, "r") as data_file, open(classes_path, "r") as classes_file:
-        reader = FileReader(data_file, classes_file)
+    with open(data_path, "r") as data_file, open(classes_path, "r") as classes_file, open(test_path, "r") as test_file:
+        reader = FileReader(data_file, classes_file, test_file)
 
-    data = list(zip(reader.classes, reader.data))
+    data = list(zip(reader.classes, reader.train))
 
-    print("Perceptron ACCURACY:")
     perceptron = MultiClassPerceptron(CLASSES, data, iterations=25, folds=4, eta=0.2)
-    perceptron.cross_validate()
+    perceptron.train()
 
     svm = SVM(CLASSES, data, iterations=40, folds=4, eta=0.01, Lambda=0.5)
-    print("SVM ACCURACY:")
-    svm.cross_validate()
+    svm.train()
 
     pa = PA(CLASSES, data, iterations=100, folds=4)
-    print("PA ACCURACY:")
-    pa.cross_validate()
+    pa.train()
+
+    y_hats_svm = svm.predict(reader.test)
+    y_hats_pa = pa.predict(reader.test)
+
+    reader.test = [item + [BIAS] for item in reader.test]
+    y_hats_per = perceptron.predict(reader.test)
+
+    # print predictions
+    for i in range(len(reader.test)):
+        print('perceptron: ' + str(y_hats_per[i]) + ', ' + 'svm: ' +
+              str(y_hats_svm[i]) + ', ' 'pa: ' + str(y_hats_pa[i]))
 
 if __name__ == "__main__":
     main()
