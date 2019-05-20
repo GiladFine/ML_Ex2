@@ -210,43 +210,97 @@ class SVM:
 
 
 class PA:
-    def __init__(self, train_x, train_y, epochs, eta, Lambda, k):
-        self.train_x = train_x
-        self.train_y = train_y
-        self.epochs = epochs
-        self.eta = eta
-        self.Lambda = Lambda
-        self.k = k
+    def __init__(self, classes, data, iterations, folds):
+        # Split feature data into train set, and test set
+        self.classes = classes
+        self.data = data
+        self.iterations = iterations
+        self.folds = folds
+
+        k, m = divmod(len(self.data), self.folds)
+        self.folded_data = list(self.data[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(self.folds))
+
+        self.train_set = [y for x in self.folded_data[1:] for y in x]
+        self.train_x = [line[1] for line in self.train_set]
+        self.train_y = [line[0] for line in self.train_set]
+
+        self.test_set = self.folded_data[0]
+        self.test_x = [line[1] for line in self.test_set]
+        self.test_y = [line[0] for line in self.test_set]
+
+        self.w = np.zeros((len(self.classes), len(self.train_x[0])))
+
+    def cross_validate(self):
+        self.train()
+        accuracy_avg = self.accuracy()
+        for i in range(1, self.folds):
+            self.train_set += self.test_set
+            self.test_set = self.folded_data[i]
+            self.train_set = [x for x in self.train_set if x not in self.test_set]
+            self.train()
+            accuracy_avg += self.accuracy()
+        accuracy_avg /= self.folds
+        print("AVG Accuracy:", accuracy_avg)
+
+    def predict(self, test_x):
+        N = len(test_x)
+        y_hats = np.zeros(N, dtype=int)
+        for i in range(N):
+            x = test_x[i]
+            values = np.dot(self.w, x)
+            y_hat = np.argmax(values)
+            y_hats[i] = y_hat
+        return y_hats
+
+    def accuracy(self):
+        correct = 0
+        incorrect = 0
+        results = self.predict(self.test_x)
+        for i in range(len(results)):
+            if results[i] == self.test_y[i]:
+                correct += 1
+            else:
+                incorrect += 1
+
+        accuracy = (correct * 1.0) / ((correct + incorrect) * 1.0)
+        print ("PA ACCURACY:")
+        print ("Model Accuracy:", accuracy)
+        return accuracy
 
     def train(self):
         N = len(self.train_x)
         n = len(self.train_x[0])
-        w = np.zeros((self.k, n))
-        for ep in range(self.epochs):
-            arr = np.arange(N)
-            np.random.shuffle(arr)
-            self.train_x = self.train_x[arr]
-            self.train_y = self.train_y[arr]
+        self.w = np.zeros((len(self.classes), n))
+        for iter in range(self.iterations):
+            random.seed(3044)
+            random.shuffle(self.train_set)
+            self.train_x = [line[1] for line in self.train_set]
+            self.train_y = [line[0] for line in self.train_set]
             for i in range(N):
                 x = self.train_x[i]
                 y = self.train_y[i]
                 y = int(y)
-                # -----
-                values = np.dot(w, x)
+                values = np.dot(self.w, x)
+                # Put -inf in y index to find argmax without y
                 values[y] = - np.inf
                 y_hat = np.argmax(values)
                 # compute tau
-                err = 1 - np.dot(w[y, :], x) + np.dot(w[y_hat, :], x)
+                err = 1 - np.dot(self.w[y, :], x) + np.dot(self.w[y_hat, :], x)
                 loss = np.max([0, err])
                 tau = loss / np.dot(x, x)
                 # update w
-                for l in range(k):
-                    if l == y:
-                        w[y, :] = w[y, :] + tau * x
-                    if l == y_hat:
-                        w[y_hat, :] = w[y_hat, :] - tau * x
+                for c in self.classes:
 
-                return w
+                    if c == y:
+                        #self.w[l, :] = s * self.w[l, :] + eta * x
+                        #self.w[c, :] = [(s * wi + self.eta * xj) for wi, xj in zip(self.w[c, :], x)]
+                        #self.w[y, :] = self.w[y, :] + tau * x
+                        self.w[c, :] = [(wi + tau * xj) for wi, xj in zip(self.w[c, :], x)]
+
+                    if c == y_hat:
+                        #self.w[y_hat, :] = self.w[y_hat, :] - tau * x
+                        self.w[c, :] = [(wi - tau * xj) for wi, xj in zip(self.w[c, :], x)]
+        return self.w
 
 def main():
     data_path = 'train_x.txt' #sys.argv[1]
@@ -257,12 +311,14 @@ def main():
 
     data = list(zip(reader.classes, reader.data))
 
-    perceptron = MultiClassPerceptron(CLASSES, data, iterations=25, folds=4, eta=0.2)
-    perceptron.cross_validate()
+    #perceptron = MultiClassPerceptron(CLASSES, data, iterations=25, folds=4, eta=0.2)
+    #perceptron.cross_validate()
 
-    svm = SVM(CLASSES, data, iterations=40, folds=4, eta=0.01, Lambda=0.5)
-    svm.cross_validate()
+    #svm = SVM(CLASSES, data, iterations=40, folds=4, eta=0.01, Lambda=0.5)
+    #svm.cross_validate()
 
+    pa = PA(CLASSES, data, iterations=100, folds=4)
+    pa.cross_validate()
 
 if __name__ == "__main__":
     main()
