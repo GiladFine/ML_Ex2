@@ -268,6 +268,7 @@ class PA:
         return accuracy
 
     def train(self):
+        #PA algorithm
         N = len(self.train_x)
         n = len(self.train_x[0])
         self.w = np.zeros((len(self.classes), n))
@@ -292,13 +293,9 @@ class PA:
                 for c in self.classes:
 
                     if c == y:
-                        #self.w[l, :] = s * self.w[l, :] + eta * x
-                        #self.w[c, :] = [(s * wi + self.eta * xj) for wi, xj in zip(self.w[c, :], x)]
-                        #self.w[y, :] = self.w[y, :] + tau * x
                         self.w[c, :] = [(wi + tau * xj) for wi, xj in zip(self.w[c, :], x)]
 
                     if c == y_hat:
-                        #self.w[y_hat, :] = self.w[y_hat, :] - tau * x
                         self.w[c, :] = [(wi - tau * xj) for wi, xj in zip(self.w[c, :], x)]
         return self.w
 
@@ -311,11 +308,11 @@ def main():
 
     data = list(zip(reader.classes, reader.data))
 
-    #perceptron = MultiClassPerceptron(CLASSES, data, iterations=25, folds=4, eta=0.2)
-    #perceptron.cross_validate()
+    perceptron = MultiClassPerceptron(CLASSES, data, iterations=25, folds=4, eta=0.2)
+    perceptron.cross_validate()
 
-    #svm = SVM(CLASSES, data, iterations=40, folds=4, eta=0.01, Lambda=0.5)
-    #svm.cross_validate()
+    svm = SVM(CLASSES, data, iterations=40, folds=4, eta=0.01, Lambda=0.5)
+    svm.cross_validate()
 
     pa = PA(CLASSES, data, iterations=100, folds=4)
     pa.cross_validate()
