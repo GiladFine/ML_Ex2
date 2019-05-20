@@ -7,8 +7,13 @@ import numpy as np
 CLASSES = [0, 1, 2]
 BIAS = 1
 
+
 class FileReader(object):
+    """
+    FileReader object, reads from file and normalize the data
+    """
     def __init__(self, data_file, classes_file, test_file):
+
         self.train = [line.split(",") for line in data_file.read().splitlines()]
         self.classes = [int(x[0]) for x in classes_file.read().splitlines()]
         self.test = [line.split(",") for line in test_file.read().splitlines()]
@@ -31,6 +36,7 @@ class FileReader(object):
             min_values[i] = (min(np.array(data)[:,i + 1]))
 
         for i in range(len(data)):
+            # Prevents dividing by 0
             for j in range(len(data[i]) - 1):
                 if max_values[j] - min_values[j] == 0:
                     max_values[j] += 0.01
@@ -40,8 +46,21 @@ class FileReader(object):
 
 
 class MLAlgorithm(object):
+    """
+    Generic ML Algorithm object
+    """
+    def train(self):
+        """
+        Implemented in deriving classes
+        :return:
+        """
+        raise NotImplementedError()
 
     def cross_validate(self):
+        """
+        Dividing the train to several parts, every time uses one as test and calc the average accuracy
+        :return:
+        """
         self.train()
         accuracy_avg = self.accuracy()
         for i in range(1, self.folds):
@@ -54,6 +73,11 @@ class MLAlgorithm(object):
         print("AVG Accuracy:", accuracy_avg)
 
     def predict(self, test_x):
+        """
+        Predicts new data classification
+        :param test_x: new unclassified data
+        :return: classification results list
+        """
         N = len(test_x)
         y_hats = np.zeros(N, dtype=int)
         for i in range(N):
@@ -64,6 +88,10 @@ class MLAlgorithm(object):
         return y_hats
 
     def accuracy(self):
+        """
+        Calculates the accuracy of the model on the test set
+        :return: accuracy rate
+        """
         correct = 0
         incorrect = 0
         results = self.predict(self.test_x)
@@ -78,7 +106,9 @@ class MLAlgorithm(object):
         return accuracy
 
 class MultiClassPerceptron(MLAlgorithm):
-
+    """
+    Perceptron implementation
+    """
     def __init__(self, classes, data, iterations, folds, eta):
         self.classes = classes
         self.data = [[data_item[0], data_item[1] + [BIAS]] for data_item in data]
@@ -87,23 +117,27 @@ class MultiClassPerceptron(MLAlgorithm):
         self.eta = eta
         self.iterations = iterations
 
-        # Split feature data into train set, and test set
-        k, m = divmod(len(self.data), self.folds)
-        self.folded_data = list(self.data[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(self.folds))
-
-        self.train_set = self.data
+        # FOR CROSS VALIDATION
+        #k, m = divmod(len(self.data), self.folds)
+        #self.folded_data = list(self.data[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(self.folds))
         #self.train_set = [y for x in self.folded_data[1:] for y in x]
         #self.test_set = self.folded_data[0]
+        # self.test_x = [line[1] for line in self.test_set]
+        # self.test_y = [line[0] for line in self.test_set]
 
+        self.train_set = self.data
+
+        # Split feature data into train_x, train_y
         self.train_x = [line[1] for line in self.train_set]
         self.train_y = [line[0] for line in self.train_set]
-
-        #self.test_x = [line[1] for line in self.test_set]
-        #self.test_y = [line[0] for line in self.test_set]
 
         self.w = np.zeros((len(self.classes), len(self.train_x[0])))
 
     def train(self):
+        """
+        Trains the perceptron
+        :return:
+        """
         self.w = np.zeros((len(self.classes), len(self.train_x[0])))
         for iter_num in range(self.iterations):
             random.seed(315)
@@ -129,9 +163,11 @@ class MultiClassPerceptron(MLAlgorithm):
                     self.w[pred_index] = np.array([(x - self.eta * y) for (x, y) in zip(self.w[pred_index], feature_array)])
 
 class SVM(MLAlgorithm):
+    """
+    SVM implementation
+    """
     def __init__(self, classes, data, iterations, folds, eta, Lambda):
 
-        # Split feature data into train set, and test set
         self.classes = classes
         self.data = data
         self.iterations = iterations
@@ -139,18 +175,19 @@ class SVM(MLAlgorithm):
         self.eta = eta
         self.Lambda = Lambda
 
-        k, m = divmod(len(self.data), self.folds)
-        self.folded_data = list(self.data[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(self.folds))
+        # FOR CROSS VALIDATION
+        # k, m = divmod(len(self.data), self.folds)
+        # self.folded_data = list(self.data[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(self.folds))
+        # self.train_set = [y for x in self.folded_data[1:] for y in x]
+        # self.test_set = self.folded_data[0]
+        # self.test_x = [line[1] for line in self.test_set]
+        # self.test_y = [line[0] for line in self.test_set]
 
         self.train_set = self.data
-        #self.train_set = [y for x in self.folded_data[1:] for y in x]
-        #self.test_set = self.folded_data[0]
 
+        # Split feature data into train_x, train_y
         self.train_x = [line[1] for line in self.train_set]
         self.train_y = [line[0] for line in self.train_set]
-
-        #self.test_x = [line[1] for line in self.test_set]
-        #self.test_y = [line[0] for line in self.test_set]
 
         self.w = np.zeros((len(self.classes), len(self.train_x[0])))
 
@@ -170,10 +207,12 @@ class SVM(MLAlgorithm):
                 y = self.train_y[i]
                 y = int(y)
                 values = np.dot(self.w, x)
-                # Put -inf in y index to find argmax without y
+                # Puts -infinity in y index to find argmax
                 values[y] = - np.inf
                 y_hat = np.argmax(values)
                 s = 1 - self.eta * self.Lambda
+
+                # Update rule
                 for c in self.classes:
                     if c == y:
                         self.w[c, :] = [(s * wi + self.eta * xj) for wi, xj in zip(self.w[c, :], x)]
@@ -183,30 +222,36 @@ class SVM(MLAlgorithm):
                         self.w[c, :] = [s * i for i in self.w[c, :]]
 
 class PA(MLAlgorithm):
+    """
+    PA Implementation
+    """
     def __init__(self, classes, data, iterations, folds):
-        # Split feature data into train set, and test set
         self.classes = classes
         self.data = data
         self.iterations = iterations
         self.folds = folds
 
-        k, m = divmod(len(self.data), self.folds)
-        self.folded_data = list(self.data[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(self.folds))
+        # FOR CROSS VALIDATION
+        # k, m = divmod(len(self.data), self.folds)
+        # self.folded_data = list(self.data[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(self.folds))
+        # self.train_set = [y for x in self.folded_data[1:] for y in x]
+        # self.test_set = self.folded_data[0]
+        # self.test_x = [line[1] for line in self.test_set]
+        # self.test_y = [line[0] for line in self.test_set]
 
         self.train_set = self.data
-        #self.train_set = [y for x in self.folded_data[1:] for y in x]
-        #self.test_set = self.folded_data[0]
 
+        # Split feature data into train_x, train_y
         self.train_x = [line[1] for line in self.train_set]
         self.train_y = [line[0] for line in self.train_set]
-
-        #self.test_x = [line[1] for line in self.test_set]
-        #self.test_y = [line[0] for line in self.test_set]
 
         self.w = np.zeros((len(self.classes), len(self.train_x[0])))
 
     def train(self):
-        #PA algorithm
+        """
+        Trains the model
+        :return:
+        """
         N = len(self.train_x)
         n = len(self.train_x[0])
         self.w = np.zeros((len(self.classes), n))
@@ -220,25 +265,25 @@ class PA(MLAlgorithm):
                 y = self.train_y[i]
                 y = int(y)
                 values = np.dot(self.w, x)
-                # Put -inf in y index to find argmax without y
+                # Puts -infinity in y index to find argmax
                 values[y] = - np.inf
                 y_hat = np.argmax(values)
-                # compute tau
+
                 err = 1 - np.dot(self.w[y, :], x) + np.dot(self.w[y_hat, :], x)
                 loss = np.max([0, err])
                 tau = loss / np.dot(x, x)
-                # update w
-                for c in self.classes:
 
+                # Update rule
+                for c in self.classes:
                     if c == y:
                         self.w[c, :] = [(wi + tau * xj) for wi, xj in zip(self.w[c, :], x)]
 
                     if c == y_hat:
                         self.w[c, :] = [(wi - tau * xj) for wi, xj in zip(self.w[c, :], x)]
 def main():
-    data_path = 'train_x_bla.txt' #sys.argv[1]
-    classes_path = 'train_y_bla.txt' #sys.argv[2]
-    test_path = 'test_x_bla.txt' #sys.argv[2]
+    data_path = sys.argv[1]
+    classes_path = sys.argv[2]
+    test_path = sys.argv[3]
 
     with open(data_path, "r") as data_file, open(classes_path, "r") as classes_file, open(test_path, "r") as test_file:
         reader = FileReader(data_file, classes_file, test_file)
